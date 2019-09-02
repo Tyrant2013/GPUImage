@@ -230,47 +230,61 @@
 #pragma mark -
 #pragma mark Handling fill mode
 
+// 2019-09-02 fix warning: Main Thread Checker: UI API called on a background thread: -[UIView bounds]
+static inline void runSafeAsynchronouslyOnMainQueue(void (^block)(void)) {
+    if (strcmp(dispatch_queue_get_label(DISPATCH_CURRENT_QUEUE_LABEL), dispatch_queue_get_label(dispatch_get_main_queue())) == 0) {
+        block();
+    }
+    else {
+        dispatch_async(dispatch_get_main_queue(), block);
+    }
+}
+
 - (void)recalculateViewGeometry;
 {
-    runSynchronouslyOnVideoProcessingQueue(^{
-        CGFloat heightScaling, widthScaling;
-        
-        CGSize currentViewSize = self.bounds.size;
-        
-        //    CGFloat imageAspectRatio = inputImageSize.width / inputImageSize.height;
-        //    CGFloat viewAspectRatio = currentViewSize.width / currentViewSize.height;
-        
-        CGRect insetRect = AVMakeRectWithAspectRatioInsideRect(inputImageSize, self.bounds);
-        
-        switch(_fillMode)
-        {
-            case kGPUImageFillModeStretch:
+    runSafeAsynchronouslyOnMainQueue(^{
+        CGRect selfBounds = self.bounds;
+        runSynchronouslyOnVideoProcessingQueue(^{
+            CGFloat heightScaling, widthScaling;
+            
+            CGSize currentViewSize = selfBounds.size;
+            
+            //    CGFloat imageAspectRatio = inputImageSize.width / inputImageSize.height;
+            //    CGFloat viewAspectRatio = currentViewSize.width / currentViewSize.height;
+            
+            CGRect insetRect = AVMakeRectWithAspectRatioInsideRect(inputImageSize, selfBounds);
+            
+            switch(_fillMode)
             {
-                widthScaling = 1.0;
-                heightScaling = 1.0;
-            }; break;
-            case kGPUImageFillModePreserveAspectRatio:
-            {
-                widthScaling = insetRect.size.width / currentViewSize.width;
-                heightScaling = insetRect.size.height / currentViewSize.height;
-            }; break;
-            case kGPUImageFillModePreserveAspectRatioAndFill:
-            {
-                //            CGFloat widthHolder = insetRect.size.width / currentViewSize.width;
-                widthScaling = currentViewSize.height / insetRect.size.height;
-                heightScaling = currentViewSize.width / insetRect.size.width;
-            }; break;
-        }
-        
-        imageVertices[0] = -widthScaling;
-        imageVertices[1] = -heightScaling;
-        imageVertices[2] = widthScaling;
-        imageVertices[3] = -heightScaling;
-        imageVertices[4] = -widthScaling;
-        imageVertices[5] = heightScaling;
-        imageVertices[6] = widthScaling;
-        imageVertices[7] = heightScaling;
+                case kGPUImageFillModeStretch:
+                {
+                    widthScaling = 1.0;
+                    heightScaling = 1.0;
+                }; break;
+                case kGPUImageFillModePreserveAspectRatio:
+                {
+                    widthScaling = insetRect.size.width / currentViewSize.width;
+                    heightScaling = insetRect.size.height / currentViewSize.height;
+                }; break;
+                case kGPUImageFillModePreserveAspectRatioAndFill:
+                {
+                    //            CGFloat widthHolder = insetRect.size.width / currentViewSize.width;
+                    widthScaling = currentViewSize.height / insetRect.size.height;
+                    heightScaling = currentViewSize.width / insetRect.size.width;
+                }; break;
+            }
+            
+            imageVertices[0] = -widthScaling;
+            imageVertices[1] = -heightScaling;
+            imageVertices[2] = widthScaling;
+            imageVertices[3] = -heightScaling;
+            imageVertices[4] = -widthScaling;
+            imageVertices[5] = heightScaling;
+            imageVertices[6] = widthScaling;
+            imageVertices[7] = heightScaling;
+        });
     });
+    
     
 //    static const GLfloat imageVertices[] = {
 //        -1.0f, -1.0f,
